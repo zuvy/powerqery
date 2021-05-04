@@ -1,0 +1,90 @@
+<queries>
+    <query name="us.pcps.individual.att.flattened"
+           coreTable="students" flattened="true" tags="zuvanj, attendance, individual">
+        <summary>Individual Attendance Report</summary>
+        <description>Display a list of absences for an individual student by date</description>
+        <args>
+		    <arg name="id" column="students.id" required="true" description="studentid" default="0" />
+		</args>
+        <columns>
+            <column column="students.dcid">dcid</column>
+            <column column="students.schoolid">schoolid</column>
+            <column column="students.schoolid">att_code</column>
+            <column column="students.schoolid">calendardate</column>
+            <column column="students.schoolid">periods_absent</column>
+            <column column="students.schoolid">daypartid</column>
+        </columns>
+        <sql>
+        <![CDATA[
+		with ad as (
+                    select * from (
+                        select
+                            s.dcid,
+                            s.schoolid,
+                            ac.att_code,
+                            ada.calendardate,
+                            adc.periods_absent,
+                            adc.daypartid
+                        from students s
+                            join att_adaadm_defaults_all ada on s.id = ada.studentid
+                            join att_daypart_curyear adc on ada.studentid = adc.studentid and ada.calendardate = adc.calendardate
+                    		join attendance att on att.studentid = s.id and adc.calendardate = att.att_date
+                    		join attendance_code ac on att.attendance_codeid = ac.id
+                        where s.id = :id
+                        and ada.pctdayposattpct < 100
+                        and ada.yearid = substr(extract(year from add_months(sysdate, -6)), -2) + 10
+                        and ada.calendardate not in 
+                        	(select att.att_date
+                        		from attendance att
+                        		join attendance_code atc on att.attendance_codeid = atc.id
+                                                    join students s1 on s1.id = att.studentid
+                                                    where att.attendance_codeid in (2967,
+                                            		3014, 3065, 3109, 3131, 3218, 3153, 3175,
+                                            		3197, 3087, 3037)
+                        							and s1.id = s.id)
+                        and adc.daypartid = 1
+                        and adc.periods_absent > case when s.schoolid > 500 then 1
+                                                when s.schoolid < 500 then  0 end
+                        
+                        union
+                        
+                        select
+                                s.dcid,
+                                s.schoolid,
+                                ac.att_code,
+                                ada.calendardate,
+                                adc.periods_absent,
+                    		    adc.daypartid
+                        from students s
+                        join att_adaadm_defaults_all ada on s.id = ada.studentid
+                        join att_daypart_curyear adc on ada.studentid = adc.studentid and ada.calendardate = adc.calendardate
+                    	join attendance att on att.studentid = s.id and adc.calendardate = att.att_date
+                    	join attendance_code ac on att.attendance_codeid = ac.id
+                        where s.id = :id
+                        and ada.pctdayposattpct < 100
+                        and ada.yearid = substr(extract(year from add_months(sysdate, -6)), -2) + 10
+                        and ada.calendardate not in 
+                        	(select att.att_date
+                        		from attendance att
+                        		join attendance_code atc on att.attendance_codeid = atc.id
+                                                    join students s1 on s1.id = att.studentid
+                                                    where att.attendance_codeid in (2967,
+                                            		3014, 3065, 3109, 3131, 3218, 3153, 3175,
+                                            		3197, 3087, 3037)
+                        							and s1.id = s.id)
+                        and adc.daypartid = 2
+                        and adc.periods_absent > case when s.schoolid > 500 then 1
+                            when s.schoolid < 500 then  0 end)
+                        group by dcid, schoolid, att_code, calendardate, periods_absent, daypartid)
+        select
+        ad.dcid,
+        ad.schoolid,
+        ad.att_code,
+        ad.calendardate,
+        ad.periods_absent,
+        ad.daypartid
+from ad
+        order by ad.schoolid
+        ]]></sql>
+    </query>
+</queries>
